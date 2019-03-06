@@ -2,10 +2,10 @@ import pandas as pd
 import numpy as np
 
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.metrics import confusion_matrix
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense, Dropout
 from keras.wrappers.scikit_learn import KerasClassifier
 
 
@@ -36,13 +36,15 @@ def load_data(file_path):
     return X_train, X_test, y_train, y_test
 
 
-def build_classifier(X_train):
+def build_classifier(X_train, optimizer):
     # Building ANN
     ann = Sequential()
     ann.add(Dense(input_dim=X_train.shape[1], output_dim=6, init='uniform', activation='relu'))
+    ann.add(Dropout(p=0.1, seed=42))
     ann.add(Dense(output_dim=6, init='uniform', activation='relu'))
+    ann.add(Dropout(p=0.1, seed=42))
     ann.add(Dense(output_dim=1, init='uniform', activation='sigmoid'))
-    ann.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    ann.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
     return ann
 
 
@@ -66,9 +68,24 @@ def run_kfold(X_train, y_train):
     return np.mean(accuracies), np.std(accuracies)
 
 
+def run_grid_search(X_train, y_train, param_grid={'batch_size': [25, 32],
+                                                  'epochs': [100, 200],
+                                                  'optimizer': ['adam', 'rmsprop']}):
+    classifier = KerasClassifier(build_fn=build_classifier, **{'X_train': X_train})
+    grid_search = GridSearchCV(estimator=classifier,
+                               param_grid=param_grid,
+                               scoring='accuracy',
+                               cv=5)
+    grid_search = grid_search.fit(X_train, y_train)
+    best_parameters = grid_search.best_params_
+    best_score = grid_search.best_score_
+    return best_parameters, best_score
+
+
 if __name__ == '__main__':
     file_path = r'.\Churn_Modelling.csv'
     X_train, X_test, y_train, y_test = load_data(file_path)
-    #predict_without_kfold(X_train, X_test, y_train, y_test)
+    # best_parameters, best_score = run_grid_search(X_train, y_train)
+    # predict_without_kfold(X_train, X_test, y_train, y_test)
     mean_acc, std_acc = run_kfold(X_train, y_train)
     print('Mean: {:.3f}, StDev: {:.3f}'.format(mean_acc, std_acc))
