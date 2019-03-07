@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
@@ -36,26 +37,36 @@ def load_data(file_path):
     return X_train, X_test, y_train, y_test
 
 
-def build_classifier(X_train, optimizer):
+def build_classifier(X_train, optimizer='adam'):
     # Building ANN
     ann = Sequential()
-    ann.add(Dense(input_dim=X_train.shape[1], output_dim=6, init='uniform', activation='relu'))
-    ann.add(Dropout(p=0.1, seed=42))
-    ann.add(Dense(output_dim=6, init='uniform', activation='relu'))
-    ann.add(Dropout(p=0.1, seed=42))
-    ann.add(Dense(output_dim=1, init='uniform', activation='sigmoid'))
+    ann.add(Dense(input_dim=X_train.shape[1], units=6, kernel_initializer='uniform', activation='relu'))
+    ann.add(Dropout(rate=0.1, seed=42))
+    ann.add(Dense(units=6, kernel_initializer='uniform', activation='relu'))
+    ann.add(Dropout(rate=0.1, seed=42))
+    ann.add(Dense(units=1, kernel_initializer='uniform', activation='sigmoid'))
     ann.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
     return ann
 
 
-def predict_without_kfold(X_train, X_test, y_train, y_test):
+def predict_without_kfold(X_train, X_test, y_train, y_test, plot_learning_curve=True):
     classifier = build_classifier(X_train)
     # Fitting to training data
-    classifier.fit(X_train, y_train, batch_size=10, epochs=100)
+    history = classifier.fit(X_train, y_train, batch_size=10, epochs=100)
 
     # Predicting test data
     y_pred = classifier.predict(X_test)
     y_pred = (y_pred > 0.5).astype(int)
+
+    # optional plot
+    if plot_learning_curve:
+        plt.plot(history.history['acc'])
+        # plt.plot(history.history['val_acc'])
+        plt.title('Model accuracy')
+        plt.ylabel('Accuracy')
+        plt.xlabel('Epoch')
+        plt.legend(['Train'], loc='upper left')
+        plt.show()
 
     # Evaluating confusion matrix
     metrics = confusion_matrix(y_test, y_pred)
@@ -86,6 +97,6 @@ if __name__ == '__main__':
     file_path = r'.\Churn_Modelling.csv'
     X_train, X_test, y_train, y_test = load_data(file_path)
     # best_parameters, best_score = run_grid_search(X_train, y_train)
-    # predict_without_kfold(X_train, X_test, y_train, y_test)
-    mean_acc, std_acc = run_kfold(X_train, y_train)
-    print('Mean: {:.3f}, StDev: {:.3f}'.format(mean_acc, std_acc))
+    predict_without_kfold(X_train, X_test, y_train, y_test)
+    # mean_acc, std_acc = run_kfold(X_train, y_train)
+    # print('Mean: {:.3f}, StDev: {:.3f}'.format(mean_acc, std_acc))
